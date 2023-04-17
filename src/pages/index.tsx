@@ -1,10 +1,11 @@
 import { type NextPage } from "next";
 import Head from "next/head";
-import { RouterOutputs, api } from "~/utils/api";
+import { api } from "~/utils/api";
 import { SignInButton, useUser, SignOutButton } from "@clerk/nextjs";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
+import type { RouterOutputs } from "../utils/api";
 
 dayjs.extend(relativeTime);
 
@@ -17,7 +18,7 @@ const CreatePostWizard = () => {
     <div className="flex gap-3">
       <Image
         src={user.profileImageUrl}
-        alt={`${user.username} profile image`}
+        alt={`${user.username || "User"} profile image`}
         className="h-12 w-12 rounded-full"
         width={48}
         height={48}
@@ -46,7 +47,7 @@ const PostView = (props: PostWithUser) => {
       />
       <div className="flex flex-col">
         <div className="flex gap-2 text-slate-300">
-          <span>{`@${author.username}`}</span>
+          <span>{`@${author.username || "Generic user"}`}</span>
           <span className="font-thin">{`° ${dayjs(
             post.createdAt
           ).fromNow()} `}</span>
