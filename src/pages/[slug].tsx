@@ -5,15 +5,41 @@ import type {
 } from "next";
 import Head from "next/head";
 import Image from "next/image";
-import { LoadingSpinner } from "~/components/loading";
-import { api } from "~/utils/api";
+import { LoadingPage, LoadingSpinner } from "~/components/loading";
+import { RouterOutputs, api } from "~/utils/api";
 import { createServerSideHelpers } from "@trpc/react-query/server";
 import { appRouter } from "~/server/api/root";
 import { prisma } from "../server/db";
 import superjson from "superjson";
 import { PageLayout } from "~/components/layout";
+import { PostView } from "~/components/PostView";
 
 type PageProps = InferGetServerSidePropsType<typeof getServerSideProps>;
+
+type ProfileFeedProps = {
+  author: RouterOutputs["profile"]["getUserByUsername"];
+};
+
+const ProfileFeed = (props: ProfileFeedProps) => {
+  const { data, isLoading, isError, error } =
+    api.posts.getPostsByUserId.useQuery({
+      userId: props.author.id,
+    });
+
+  if (isLoading) return <LoadingPage />;
+
+  if (error || isError) return <div>Something go wrong!</div>;
+
+  if (!data) return <div>User not posted!</div>;
+
+  return (
+    <div>
+      {data.map((post) => (
+        <PostView post={post} author={props.author} key={post.id} />
+      ))}
+    </div>
+  );
+};
 
 const ProfilePage: NextPage<PageProps> = ({ slug }) => {
   const { data, isLoading } = api.profile.getUserByUsername.useQuery(
@@ -28,6 +54,7 @@ const ProfilePage: NextPage<PageProps> = ({ slug }) => {
     console.log("Is loading!!!");
     return <LoadingSpinner size={40} />;
   }
+
   if (!data) return <div>404</div>;
 
   return (
@@ -48,6 +75,7 @@ const ProfilePage: NextPage<PageProps> = ({ slug }) => {
         <div className="h-[64px]"></div>
         <div className="p-4 text-2xl">{`@${data.username}`}</div>
         <div className="w-full border-b border-slate-400"></div>
+        <ProfileFeed author={data} />
       </PageLayout>
     </>
   );
