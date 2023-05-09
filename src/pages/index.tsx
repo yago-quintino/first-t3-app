@@ -9,6 +9,7 @@ import { LoadingPage, LoadingSpinner } from "~/components/loading";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
+import { PageLayout } from "~/components/layout";
 
 dayjs.extend(relativeTime);
 
@@ -112,7 +113,14 @@ const PostView = (props: PostWithUser) => {
 };
 
 const Feed = () => {
-  const { data, isLoading: isPostsLoading } = api.posts.getAll.useQuery();
+  const { data, isLoading: isPostsLoading } = api.posts.getAll
+    .useQuery
+    // undefined, "Use undefined as input to be able to pass Config Options"
+    // {
+    //   refetchOnMount: false,
+    //   refetchOnWindowFocus: false,
+    // }
+    ();
 
   if (isPostsLoading) return <LoadingPage />;
 
@@ -129,32 +137,26 @@ const Feed = () => {
 const Home: NextPage = () => {
   const { isLoaded: isUserLoaded, isSignedIn } = useUser();
 
-  //Caching data
-  api.posts.getAll.useQuery();
-
   if (!isUserLoaded) return <div />;
 
   return (
-    <>
-      <main className="flex min-h-screen justify-center">
-        <div className="w-full border-x border-slate-400 md:max-w-2xl">
-          <div className="flex border-b border-slate-400 p-4">
-            {!isSignedIn && (
-              <div className="flex justify-center">
-                <SignInButton />
-              </div>
-            )}
-            {isSignedIn && (
-              <div className="flex w-full justify-between">
-                <CreatePostWizard />
-                <SignOutButton />
-              </div>
-            )}
+    <PageLayout>
+      <div className="flex border-b border-slate-400 p-4">
+        {!isSignedIn && (
+          <div className="flex justify-center">
+            <SignInButton />
           </div>
-          <Feed />
-        </div>
-      </main>
-    </>
+        )}
+        {isSignedIn && (
+          <div className="flex w-full justify-between">
+            <CreatePostWizard />
+            <SignOutButton />
+          </div>
+        )}
+      </div>
+
+      <Feed />
+    </PageLayout>
   );
 };
 
