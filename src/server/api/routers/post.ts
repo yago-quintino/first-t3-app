@@ -5,6 +5,7 @@ import z from "zod";
 import { Ratelimit } from "@upstash/ratelimit"; // for deno: see above
 import { Redis } from "@upstash/redis";
 import { filterUserForClient } from "~/server/helpers/filterUserForClient";
+import type { Post } from "@prisma/client";
 
 // Create a new ratelimiter, that allows 3 requests per 1 minute
 const ratelimit = new Ratelimit({
@@ -19,6 +20,40 @@ const ratelimit = new Ratelimit({
   // prefix: "@upstash/ratelimit",
 });
 
+const addUserDataToSinglePost = async (post: Post) => {
+  const user = await clerkClient.users
+    .getUser(post.authorId)
+    .then(filterUserForClient);
+
+  return {
+    author: user,
+    post,
+  };
+};
+
+const addUserDataToPosts = async (posts: Post[]) => {
+  const users = (
+    await clerkClient.users.getUserList({
+      userId: posts.map((post) => post.authorId),
+      limit: 100,
+    })
+  ).map(filterUserForClient);
+
+  return posts.map((post) => {
+    const author = users.find((user) => user.id === post.authorId);
+
+    if (!author)
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Author for post not found",
+      });
+    return {
+      post,
+      author,
+    };
+  });
+};
+
 export const postRouter = createTRPCRouter({
   getAll: publicProcedure.query(async ({ ctx }) => {
     const posts = await ctx.prisma.post.findMany({
@@ -26,26 +61,13 @@ export const postRouter = createTRPCRouter({
       orderBy: [{ createdAt: "desc" }],
     });
 
-    const users = (
-      await clerkClient.users.getUserList({
-        userId: posts.map((post) => post.authorId),
-        limit: 100,
-      })
-    ).map(filterUserForClient);
+    if (!posts)
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Post not found",
+      });
 
-    return posts.map((post) => {
-      const author = users.find((user) => user.id === post.authorId);
-
-      if (!author)
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Author for post not found",
-        });
-      return {
-        post,
-        author,
-      };
-    });
+    return addUserDataToPosts(posts);
   }),
   getPostsByUserId: publicProcedure
     .input(z.object({ userId: z.string() }))
@@ -60,11 +82,27 @@ export const postRouter = createTRPCRouter({
 
       if (!userPosts)
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "User not found",
+          code: "NOT_FOUND",
+          message: "Posts not found",
         });
 
-      return userPosts;
+      return addUserDataToPosts(userPosts);
+    }),
+  getSinglePostById: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const singlePost = await ctx.prisma.post.findUnique({
+        where: {
+          id: input.id,
+        },
+      });
+      if (!singlePost) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Post not found",
+        });
+      }
+      return addUserDataToSinglePost(singlePost);
     }),
   create: privateProcedure
     .input(

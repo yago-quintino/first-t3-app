@@ -7,12 +7,9 @@ import Head from "next/head";
 import Image from "next/image";
 import { LoadingPage, LoadingSpinner } from "~/components/loading";
 import { RouterOutputs, api } from "~/utils/api";
-import { createServerSideHelpers } from "@trpc/react-query/server";
-import { appRouter } from "~/server/api/root";
-import { prisma } from "../server/db";
-import superjson from "superjson";
 import { PageLayout } from "~/components/layout";
-import { PostView } from "~/components/PostView";
+import { PostView } from "~/components/postView";
+import { generateSSRHelper } from "~/server/helpers/serverSideHelpers";
 
 type PageProps = InferGetServerSidePropsType<typeof getServerSideProps>;
 
@@ -34,8 +31,8 @@ const ProfileFeed = (props: ProfileFeedProps) => {
 
   return (
     <div>
-      {data.map((post) => (
-        <PostView post={post} author={props.author} key={post.id} />
+      {data.map((fullPost) => (
+        <PostView {...fullPost} key={fullPost.post.id} />
       ))}
     </div>
   );
@@ -84,11 +81,7 @@ const ProfilePage: NextPage<PageProps> = ({ slug }) => {
 export const getServerSideProps = async (
   context: GetServerSidePropsContext<{ slug: string }>
 ) => {
-  const helpers = createServerSideHelpers({
-    router: appRouter,
-    ctx: { prisma, userId: null },
-    transformer: superjson, //  optional - adds superjson serialization
-  });
+  const helpers = generateSSRHelper();
 
   const slug = context.params?.slug;
 
